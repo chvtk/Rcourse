@@ -1,0 +1,321 @@
+---
+title: "Introduction to dplyr"
+output:
+  html_document: default
+---
+
+Data manipulation is central to data analysis and is often the most time consuming portion of an analysis. The `dplyr` package contains a suite of functions to make data manipulation easier. The core functions of the `dplyr` package can be thought of as verbs for data manipulation.  
+
+
+Verb(s)               |  Meaning
+--------------------- | -----------------------------------------------------
+`filter` and `slice`  | pick specific observations (i.e. specific rows)
+`arrange`             | reorder the rows
+`select`              | pick variables by their names (i.e. specific columns)
+`mutate`              | add new calculated columns to a data frame
+`summarize`           | aggregate many rows into a single row  
+
+
+
+In this example we will explore how to use each of these functions, as well as how to combine them with the `group_by` function for groupwise manipulations.
+
+To begin, let's make sure that the `dplyr` package is loaded. Loading a package is done with the `library` function. It is good practice to load all your packages at the beginning of your data analysis. 
+
+*Note that you need to have the specific packages installed on the computer you are working on to be able to load the package. The SC 340 computers already have the packages we will be using installed. If you are using your personal computer, you will need to enter the command `install.packages("packageName")` in the console to install specific packages. Note that the package name should be in quotations.*  
+
+```{r message=FALSE, warning=FALSE}
+library(dplyr)
+```
+
+Then, let's load our dataset. We will work with the same survey data that we worked with on Wednesday. Go ahead an load that data!
+```{r}
+survey = read.csv("/Users/chantalkoechli/Desktop/ClimateChange_Sp2018/Datasets/ClimateChangeOpinon/Clim_Change_Opinion_Survey.csv")
+#This file path is specific for the location of the file on my computer - remember, your path may be different
+```
+
+
+
+Let's remind ourselves of what the data look like by looking at the first six rows
+
+```{r eval = T}
+head(survey)
+```
+
+the last six rows
+
+```{r, eval=T}
+tail(survey)
+```
+
+and the structure of the data frame.
+
+```{r, eval=T}
+str(survey)
+```
+
+### 1. Filtering rows
+
+In our last lab, we subset the data to those respondants from a rural area using `subset`. The dplyr package uses the function `filter` to accomplish this same task. Both commands produce the same output, but filter can be faster for larger datasets and has greater functionality [can work efficiently with database-like structures - something we will not cover in this class] :
+
+```{r, eval=T}
+rural <- filter(survey, Area == "Rural") #Note that because the variable is a character, we put the filtering value [Rural] in quotation marks. 
+head(rural)
+```
+
+**Remarks**
+
+* The first argument given to `filter` is always the data frame (this is true for all the core functions in `dplyr`), followed by logical tests that the returned cases must pass. In our example, the test was whether the participant's area was in rural, which is written as `Area == "rural"`.
+* We have to use `==` to indicate equality because `=` is equivalent to `<-`.
+* When testing character variables, be sure to use quotes to specify the value of the variable that you are testing.
+* **To specify multiple tests**, use a comma to separate the tests (think of the comma as the word "and"). For example,
+
+```{r}
+rural_and_overTwoAdults <- filter(survey, Area == "rural", Number_Adults > 2)
+```
+
+returns only those rows corresponding to respondants in rural areas with greater than two adults in the household.
+
+* To specify that <u>at least one</u> test must be passed, use the `|` character instead of the comma. For example, the below test checks whether a respondant always leaves the lights on when they leave the room or always leaves the heat on when they leave the house for a few hours.
+
+```{r}
+E_waste <- filter(survey, Lights_on == "Always " | Heat_on == "Always ")
+```
+
+* You can use both `|` and `,` to specify multiple tests. For example, we can return all respondants that always leave the lights on when they leave the room or always leave the heat on when they leave the house for a few hours and have more than 3 people in their household.
+
+```{r}
+      E_waste_people <- filter(survey, Lights_on == "Always " | Heat_on == "Always ", Number_people >3)
+```
+      
+* Common comparison operators for the tests include: `>`, `>=`, `<`, `<=`, `!=` (not equal), and `==` (equal).
+* To remove rows with missing values, use the R command `na.omit`. For example,  
+```{r}
+      survey <- na.omit(survey)
+``` 
+      
+will reduce the data set to only rows with no missing values. This will remove entire rows from your dataset.
+
+```{r}
+survey <- filter(survey, !is.na(Income))
+``` 
+    
+will eliminate only rows with `NA` in the income column. 
+
+### 2. Slicing rows
+
+To extract rows 10 through 16 from the **survey** data frame we use the `slice` function. This functions identically to indexing.
+
+Indexing:
+```{r}
+survey[1:10,]
+```
+
+Slice function:
+```{r, eval=FALSE}
+slice(survey, 10:16)
+```
+
+It is up to your personal preference which command you would like to use. 
+
+**Remarks**
+
+* **To select consecutive rows**, create a vector of the row indices by separating the first and last row numbers with a `:` (example 1:5 would select rows 1-5). 
+* **To select non-consecutive rows**, create a vector manually by concatenating the row numbers using `c()`. For example, to select the 2nd, 18th, and 168th rows use `slice(survey, c(2, 18, 168))`.
+
+
+### 3. Arranging rows
+
+To sort the rows by Income, from the least to the most, we use the `arrange` function.
+
+```{r}
+Income <- arrange(survey, Income)
+head(Income)
+```
+
+
+**Remarks**
+
+* By default, `arrange` assumes that we want the data arranged in ascending order by the specified variable(s).
+* **To arrange the rows in descending order**, wrap the variable name in the `desc` function. For example, to arrange the data frame from most to least expensive we would use the following command:
+
+```{r}
+Income <- arrange(survey, desc(Income))
+```
+
+* To arrange a data frame by the values of multiple variables, list the variables in a comma separated list. The order of the variables specifies the order in which the data frame will be arranged. For example,
+
+  
+```{r}
+Cost_concern <- arrange(survey, desc(Income), desc(Heating_method_prim))
+```
+
+reorders **survey** first by the income (in descending order) and then by the primary heating method used in the house (in descending order). You may ask what the heating method order is, as heating method is a nominal (not intrinsically ordered) categorical variable. If we type in : 
+```{r}
+str(survey$Heating_method_prim)
+```
+We see that R classifies the heating method variable as a factor. In R, factors have `levels` that assign order to the values of the variable. We can see the order of the variable using:      
+
+```{r}
+levels(survey$Heating_method_prim)
+```
+Here, we see that the order is "" [no response], "Electric", "Gas", "Oil", "Other", and "Solid fuel" - alphabetical order is the default. While the order for this factor may not matter too much, perhaps we want "Other" and the no response to be the last levels of the factor. We can easily re-order the factor, using :
+
+```{r}
+survey$Heating_method_prim = factor(survey$Heating_method_prim, levels = c("Electric", "Gas", "Oil", "Solid fuel", "Other",""))
+
+```
+
+Seeing if it worked...
+```{r}
+levels(survey$Heating_method_prim)
+```
+Hooray! 
+
+A great resource for re-ordering factor questions is : http://www.cookbook-r.com/Manipulating_data/Changing_the_order_of_levels_of_a_factor/
+
+
+
+### 4. Selecting columns
+
+Suppose that you are only interested in a subset of the columns in the data set---say, `Income`, `Energy_thought`, `ClimChange_concerns`, `Age`, and `Children`---and want to create a data frame with only these columns. To do this, we `select` the desired columns:
+
+```{r}
+lessCols <- select(Income, Energy_thought, ClimChange_concerns, Age, Children)
+head(lessCols)
+```
+
+**Remarks**
+
+* After specifying the data frame, list the variable names to select from the data frame separated by commas.  
+* You can also specify a consecutive range of columns by using : (ex. Property_type:Income will select all columns from Property type to Income)
+* In some cases you may want to drop a small number of variables from a data frame. In this case, putting a negative sign before a variable name tells `select` to select all but the negated variables. For example, if we only wished to drop the `Property_type` variable we run the following command:
+
+```{r}
+drop_prop <- select(survey, -Property_type)
+```
+
+
+### 5. Mutating data (adding new columns)
+
+Data sets often do not contain the exact variables we need, but contain all of the information necessary to calculate the needed variables. In this case, we can use the `mutate` function to add a new column to a data frame that is calculated from other variables. For example, we may wish to convert income from British pounds to dollars (current conversion rate is 1 British pound = 1.43 US dollars).
+
+```{r}
+survey <- mutate(survey, Income_US = 1.43 * Income)
+```
+
+**Remarks**
+
+* After specifying the data frame, give the name of the new variable and it's definition. Notice that we need to use `=` to assign the value of the new variable.
+* **To add multiple variables once**, separate the list of new variables by commas. For example, we can also add income in Euros. 
+
+```{r}
+survey2 <- mutate(survey, Income_US = 1.43 * Income, 
+                  Income_Euro = 1.14 * Income) %>% 
+            select(Income, Income_US, Income_Euro)
+head(survey2)
+```
+Notice that I chained the above command, meaning that I ran one command (mutate) and then ran another one (select), after inserting `%>%`. Thus, dplyr can compound commands - you can chain together as many commands as you wish.  
+
+Notice also that I assigned the output of the commands to a new variable (`survey2`). This is because I wanted `survey` to retain all of the columns, whereas `survey2` has only select columns. 
+
+### 6. Summarizing rows
+
+To create summary statistics for columns within the data set we must aggregate all of the rows using the `summarize` command. (Note that you can also use the British spelling: `summarise`.) For example, to calculate the mean number of the number of people in each of the `r nrow("survey")` respondents' homes, we run the following command:
+
+```{r}
+summarize(survey, mean_n_people = mean(Number_people, na.rm = TRUE))
+```
+
+**Remarks**
+
+* As with all of the functions we have seen, the first argument should be the name of the data frame.
+* We add `na.rm = TRUE` here to remove any missing values in the `cost` column before the calculation. Many functions, including this summarize function, will return an error if there are missing values (blanks, `NA`s or `NaN`s) in your data.
+* `summarize` returns a data frame, with one row and one column.
+* We can ask for multiple aggregations in one line of code by simply using a comma separated list. For example, we can calculate the five number summary of `Income` for all `r nrow(survey)` respondants in our data set
+
+```{r}
+summarize(survey, 
+          min = min(Income, na.rm = TRUE), 
+          Q1 = quantile(Income, .25, na.rm = TRUE), 
+          median = median(Income, na.rm = TRUE), 
+          Q3 = quantile(Income, .75, na.rm = TRUE), 
+          max = max(Income, na.rm = TRUE),
+          mean = mean(Income, na.rm = TRUE))
+```
+    
+* Notice that even when multiple statistics are calculated, the result is a data frame with one row and the number of columns correspond to the number of summary statistics.
+
+
+**Question**
+
+What happens if we remove `na.rm = TRUE` from the code above?
+
+
+### 7. Groupwise manipulation
+
+Often it is of interest to manipulate data within groups. For example, we might be more interested in income distributions across different energy usage practices. To do this we must first tell R what groups are of interest using the `group_by` function, and then we can use any of the above functions. Most often `group_by` is paired with `summarise` or `mutate`.
+
+Let's first consider comparing the heating practices (if people leave heating on when they leave the house for a few hours). First, we must specify that the variable `type` defines the groups of interest.
+
+```{r}
+survey_by_heating <- group_by(survey, Heat_on)
+```
+
+**Remarks**
+
+* After specifying the data frame, list the categorical variable(s) defining the groups.
+
+<!-- * When we print the data frame it tells us the variables that define the groups and how many groups are in the data frame. This provides sanity checks, so be sure to pay attention to if this matches your expectation! For example, if there were any typos in the column or if just one value is capitalized (such as Public) we would be told there are more than two groups. -->
+
+* Multiple variables can be used to specify the groups. For example, to specify groups by heating and light use practices, we would run the following command:
+
+```{r}
+survey_by_heat_light <- group_by(survey, Heat_on, Lights_on)
+```
+
+
+#### Combining `group_by` with other commands 
+
+Once we have a grouped data frame, we can obtain summaries by group via `summarize`. For example, the five number summary of cost by institution type is obtained below
+
+```{r}
+summarize(survey_by_heating, 
+          min = min(Income, na.rm = TRUE), 
+          Q1 = quantile(Income, .25, na.rm = TRUE), 
+          median = median(Income, na.rm = TRUE), 
+          Q3 = quantile(Income, .75, na.rm = TRUE), 
+          max = max(Income, na.rm = TRUE),
+          mean = mean(Income, na.rm = TRUE),
+          n_resp = length(Income)) #The length(Income) command gives us the length (number) of income  responses for each group
+
+```
+
+We can also calculate new variables within groups, such as the proportion of the maximum income a person makes within a group:
+
+```{r, message = FALSE}
+survey_by_heating <- mutate(survey_by_heating, 
+                            max.Income = max(Income, na.rm = TRUE), 
+                            Prop.Income = Income / max.Income) %>% select(Income, Prop.Income)
+head(survey_by_heating)
+```
+
+**Remarks**
+
+* `mutate` allows you to use variables defined earlier to calculate a new variable. This is how `std.cost` was calculated.
+* The `group_by` function returns an object of class `c("grouped_df", "tbl_df",     "tbl", "data.frame")`, which looks confusing, but essentially allows the data frame to be printed neatly. Notice that only the first 10 rows print when we print the data frame in the console by typing `survey_by_heating`, and the width of the console determines how many variables are shown.
+* To print all columns we can convert the results back to a `data.frame` using the `as.data.frame` function. Try running `head(as.data.frame(survey_by_heating))`.
+* You can also use the viewer by running the command `View(survey_by_heating)`.
+* Another option is to `select` a reduced number of columns to print.
+
+### 8. On Your Own
+
+Think about how you could apply each of the the dplyr commands on a dataset of your own interest. Then, try it out!
+
+
+### 9. Additional Resources
+
+* [RStudio's data wrangling cheat sheet](https://www.rstudio.com/wp-content/uploads/2015/02/data-wrangling-cheatsheet.pdf) provides a nice summary of the functions in the `dplyr` package, including those covered in this tutorial and others. 
+
+* The [introductory vignette](https://cran.rstudio.com/web/packages/dplyr/vignettes/dplyr.html) to `dplyr` provides an example of wrangling a data set consisting of 336,776 flights that departed from New York City in 2013.
+
+* Roger Peng's [video overview](https://www.youtube.com/watch?v=aywFompr1F4&feature=youtu.be) of the `dplyr` package.

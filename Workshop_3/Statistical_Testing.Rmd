@@ -1,0 +1,714 @@
+---
+title: "Statistical Testing"
+author: "Chantal Koechli"
+date: "2/26/2019"
+output: 
+ html_document:
+    toc: true
+    toc_depth: 4
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, error = FALSE, message = FALSE)
+```
+
+## Central Tendancy
+
+To illustrate these calculations of central tendancy, we'll use the **Iris** dataset that is built into R.
+
+Exploring the data a bit
+```{r}
+head(iris) #shows the first six lines of data
+```
+```{r}
+unique(iris$Species) #shows how many unique entries are in the Species column
+```
+
+###Mean
+We can find the mean sepal length for the entire dataset (across all species)
+```{r}
+mean(iris$Sepal.Length)
+```
+We can also find the mean sepal length for each specific species, by grouping and summarising with dplyr :
+
+```{r}
+library(dplyr) # loading dplyr
+iris_summary = iris %>%  #the %>% modifier allows us to chain commands together
+                group_by(Species) %>% #grouping data by the species value
+                summarise(mean_length = mean(Sepal.Length)) #calculating mean sepal length
+iris_summary #looking at our data
+```
+
+We can graph this data, too : 
+```{r, fig.height= 4, fig.width=3}
+library(ggplot2) #loading ggplot2
+iris_summary = iris %>%  #the %>% modifier allows us to chain commands together
+                group_by(Species) %>% #grouping data by the species value
+                summarise(mean_length = mean(Sepal.Length),#calculating mean sepal length
+                          sd_length = sd(Sepal.Length)) #calculating sd of sepal length
+iris_summary #looking at our data
+
+ggplot(iris_summary, #calling out dataset to plot
+       aes(x = Species, y = mean_length)) + #specifying x and y values
+        geom_bar(stat = "identity") +  #specifying bar plot with discrete x and continous y
+        ylab("mean sepal length (cm)") + #changing y label text
+        geom_errorbar(aes(x = Species,  #adding error bars 
+                          ymax = mean_length + sd_length, 
+                          ymin = mean_length - sd_length,
+                          width = 0.2
+                          ))
+```
+
+
+###Median
+
+The same can be done with median : we can find the median sepal length for the entire dataset (across all species)
+```{r}
+median(iris$Sepal.Length)
+```
+We can also find the median sepal length for each specific species, by grouping and summarising with dplyr :
+
+```{r}
+iris_summary = iris %>%  #the %>% modifier allows us to chain commands together
+                group_by(Species) %>% #grouping data by the species value
+                summarise(median_length = median(Sepal.Length)) #calculating median sepal length
+iris_summary #looking at our data
+```
+
+
+###Mode
+
+There is no built in mode function in R! 
+
+We can write a function, though : 
+```{r}
+Mode <- function(x) {
+  ux <- unique(x)
+  ux[which.max(tabulate(match(x, ux)))]
+}
+```
+
+Let's try it out
+```{r}
+Mode(iris$Petal.Length)
+```
+
+```{r}
+iris_summary = iris %>%  #the %>% modifier allows us to chain commands together
+                group_by(Species) %>% #grouping data by the species value
+                summarise(mode_length = Mode(Petal.Length)) #calculating media sepal length
+iris_summary #looking at our data
+```
+
+
+## Dispersion
+
+Measures of dispersion are easily calculated :
+
+###Standard Deviation
+
+```{r}
+iris_summary = iris %>%  #the %>% modifier allows us to chain commands together
+                group_by(Species) %>% #grouping data by the species value
+                summarise(sd_length = sd(Sepal.Length)) #calculating sd of sepal length
+
+iris_summary
+```
+
+
+###Standard Error of Measurement
+
+```{r}
+iris_summary = iris %>%  #the %>% modifier allows us to chain commands together
+                group_by(Species) %>% #grouping data by the species value
+                summarise(sem_length = sd(Sepal.Length)/sqrt(length(Sepal.Length))) #calculating sem of sepal length
+
+iris_summary
+```
+
+### Confidence Intervals
+
+These can be calculated, with help of qt function - quantile function of the Student t distribution : 
+```{r, eval = FALSE}
+
+se = sd/length(variable)
+
+lower.ci = mean - qt(1 - (0.05 / 2), n - 1) * se 
+
+upper.ci = mean + qt(1 - (0.05 / 2), n - 1) * se
+```
+
+## Chi Square Goodness of Fit
+
+Is probability of car colors equal across black, white, and silver cars?
+```{r}
+car_colors = c(81, 50, 27)
+results = chisq.test(car_colors, p = c(1/3, 1/3, 1/3))
+results
+```
+
+
+## Chi Square Test of Independence
+
+```{r}
+# Import the data
+file_path <- "http://www.sthda.com/sthda/RDoc/data/housetasks.txt"
+housetasks <- read.delim(file_path, row.names = 1)
+head(housetasks)
+```
+
+Visualizing, two ways :
+
+```{r, fig.width=6, fig.height=5}
+# 1. convert the data as a table
+dt <- as.table(as.matrix(housetasks))
+# 2. Graph
+mosaicplot(dt, shade = TRUE,  
+           main = "Housetasks", las = 4)
+```
+
+
+
+```{r, fig.width=6.5, fig.height=4.5}
+library("gplots")
+# 1. convert the data as a table
+dt <- as.table(as.matrix(housetasks))
+# 2. Graph
+balloonplot(t(dt), main ="Housetasks", xlab ="", ylab="",
+            label = FALSE, show.margins = FALSE)
+```
+
+To create a contingency table, use the `xtabs` command (in base R).
+
+Additional visualizations of contingency tables, with corresponding code, can be found here : http://statmath.wu.ac.at/projects/vcd/
+
+Computing chi-squared
+```{r}
+chisq = chisq.test(housetasks)
+chisq
+```
+
+
+## Independent t-test
+
+### Assumption Testing 
+
+Creating a dataset to use :
+```{r}
+# Data in two numeric vectors
+women_weight <- c(38.9, 61.2, 73.3, 21.8, 63.4, 64.6, 48.4, 48.8, 48.5)
+men_weight <- c(67.8, 60, 63.4, 76, 89.4, 73.3, 67.3, 61.3, 62.4) 
+# Create a data frame
+my_data <- data.frame( 
+                group = rep(c("Woman", "Man"), each = 9),
+                weight = c(women_weight,  men_weight)
+                )
+```
+
+####Normality
+```{r}
+women = filter(my_data, group == "Woman")
+men = filter(my_data, group == "Man")
+```
+```{r}
+shapiro.test(women$weight)
+```
+
+```{r}
+shapiro.test(men$weight)
+```
+
+####Homoscedasticity 
+```{r}
+results = var.test(weight ~ group, data = my_data)
+results
+```
+
+```{r}
+# Data in two numeric vectors
+women_weight <- c(38.9, 61.2, 73.3, 21.8, 63.4, 64.6, 48.4, 48.8, 48.5)
+men_weight <- c(67.8, 60, 63.4, 76, 89.4, 73.3, 67.3, 61.3, 62.4) 
+# Create a data frame
+my_data <- data.frame( 
+                group = rep(c("Woman", "Man"), each = 9),
+                weight = c(women_weight,  men_weight)
+                )
+```
+
+###Visualizing and Testing
+Visualize the data
+```{r, fig.height= 4, fig.width=3}
+ggplot(my_data, aes(x=group, y = weight)) + geom_violin() +geom_boxplot()+ ylab("Weight (kg)")
+```
+
+Running the t-test :
+```{r}
+t.test(women_weight, men_weight, var.equal = TRUE)
+```
+
+## Wilcoxon Signed Rank Test
+```{r}
+wilcox.test(women_weight, men_weight,paired=FALSE)
+```
+
+
+## Dependent t-test / Paired t-test
+
+We'll use the built in `sleep` dataset, showing effect of two drugs (increase in hours of sleep compared to control) on 10 patients:
+```{r}
+head(sleep)
+```
+```{r}
+unique(sleep$group)
+```
+```{r}
+unique(sleep$ID)
+```
+
+Let's visualize the data:
+```{r, fig.height= 4, fig.width=3}
+ggplot(sleep, aes(x=group, y = extra)) + geom_boxplot() + ylab("Extra sleep (hours)")
+```
+
+
+Running the paired t-test
+```{r}
+t.test(extra ~ group, sleep, paired=TRUE)
+```
+
+You can also do a one sample t-test:
+```{r}
+t.test(sleep$extra, mu=0)
+```
+
+## Dependent Wilcoxon Signed Rank Test
+```{r}
+wilcox.test(women_weight, men_weight,paired=TRUE)
+```
+
+
+## Correlation
+
+Correlation between petal width and petal length in iris dataset using the cor.test() function that is in base R. 
+
+* Note that sample estimate output is effect size r.  
+* The method can be adjusted to "spearman" or "kendall".   
+* Looking at ?cor.test() provides more explanation of methodology and also additional arguments that can be added to the function. 
+
+```{r}
+iris_num = iris %>% select(-Species) #removing the species column from the iris dataset, as the corr.test function only takes numeric data
+cor.test(~iris_num$Petal.Width + iris_num$Petal.Length, #specifying formula for correlation
+          method = "pearson") # can change to spearman or kendall 
+
+```
+
+There are also packages that facilitate visualization and testing of multiple correlations:
+```{r}
+library(psych) #loading psych library
+pairs(data=iris,
+    ~ Sepal.Length + Sepal.Width + Petal.Length + Petal.Width) # plots pairwise comparisions of data 
+
+```
+
+```{r}
+iris_num = iris %>% select(-Species) #removing the species column from the iris dataset, as the corr.test function only takes numeric data
+
+corr.test(iris_num, 
+          use    = "pairwise", 
+          method = "pearson", # can change to spearman 
+          adjust = "BH") #adjusting p-values for multiple comparisons via Benjamini Hochberg method. Can also input "holm", "hochberg", "hommel", "bonferroni", "BY","fdr", "none". See ?p.adjust() for more details about different choices
+```
+
+
+##Regression
+
+Let's take a look at the dataset `cars`: speed and corresponding stopping distance of cars.
+```{r}
+head(cars)
+```
+
+Let's graph: 
+```{r}
+ggplot(cars, aes(x = speed, y = dist)) + #establishing x and y
+      geom_point() + #specifying scatterplot
+      xlab("Speed (mph)") + #changing x-axis label
+      ylab("Distance (ft)") #changing y label
+```
+
+Let's fit a linear model. Note that ?lm() provides more arguments for the function, including addition of a vector of weights.
+```{r}
+car_model = lm(dist ~ speed, #specifying formula for model
+           data = cars) #specifying dataset to use
+
+summary(car_model) #printout of regression results
+```
+
+Can we plot the linear model? 
+
+Yes!  
+
+* Note that the default is for standard error of the linear model to plot as well.
+* Other options under method include "auto", "glm", "gam", "loess", or you can specify a specific function. 
+* ?geom_smooth() provides more information about function options. 
+```{r}
+ggplot(cars, aes(x = speed, y = dist)) + #establishing x and y
+      geom_point() + #specifying scatterplot
+      xlab("Speed (mph)")+ #changing x-axis label
+      ylab("Distance (ft)")+ #changing y label
+      geom_smooth(method = "lm") #adding linear model line
+```
+
+####Checking Assumptions
+
+```{r}
+library(broom)
+model.diag.metrics <- augment(car_model)
+head(model.diag.metrics)
+```
+```{r}
+ggplot(model.diag.metrics, aes(speed, dist)) +
+  geom_point() +
+  stat_smooth(method = lm, se = FALSE) +
+  geom_segment(aes(xend = speed, yend = .fitted), color = "red", size = 0.3)
+```
+
+Looking at linearity of data with residuals vs fitted plot
+```{r}
+plot(car_model,1)
+```
+
+Looking at linearity of residuals with normal probability plot of residuals
+```{r}
+plot(car_model, 2)
+```
+
+
+Looking at homoscedasticity with spread-location (scale-location) plot
+```{r}
+plot(car_model, 3)
+```
+
+Additional plots 
+```{r}
+# Cook's distance (an observation has high influence if Cook’s distance exceeds 4/(n - p - 1) - P. Bruce and Bruce 2017)
+plot(car_model, 4)
+```
+
+```{r}
+# Residuals vs Leverage (outlying values are generally located at the upper right corner or at the lower right corner)
+plot(car_model, 5)
+```
+
+
+
+## One-Way ANOVA between sum of squares
+
+Let's take a look at the dataset Plant Growth, testing impact of three treatments on plant yield (dry plant weight)
+```{r}
+head(PlantGrowth)
+```
+
+Unique treatments 
+```{r}
+unique(PlantGrowth$group)
+```
+
+Let's graph: 
+```{r}
+ggplot(PlantGrowth, aes(x = group, y = weight)) + 
+        geom_boxplot() +
+        ylab("Dried Mass (g)") +
+        xlab("Treatment")
+        
+```
+
+
+Now running the ANOVA 
+```{r}
+aov_plant = aov(lm(weight ~ group, data = PlantGrowth))
+summary(aov_plant)
+```
+
+Post-hoc testing
+
+```{r}
+tukey = TukeyHSD(aov_plant)
+tukey
+```
+```{r}
+plot(tukey)
+```
+
+####Checking Assumptions
+
+Homogeneity of Variance
+```{r}
+plot(aov_plant, 1)
+```
+
+```{r}
+library(car)
+leveneTest(weight ~ group, data = PlantGrowth)
+```
+
+
+Normality
+```{r}
+plot(aov_plant, 2)
+```
+
+```{r}
+# Extract the residuals
+aov_residuals <- residuals(object = aov_plant )
+# Run Shapiro-Wilk test
+shapiro.test(x = aov_residuals )
+```
+
+####Non-Parametric Option : Kruskal Wallis
+```{r}
+kruskal.test(weight ~ group, data = PlantGrowth)
+```
+
+## Factorial ANOVA
+
+Let's take a look at the dataset ToothGrowth, testing impact of Vitamin C on tooth growth in guinea pigs
+```{r}
+head(ToothGrowth)
+```
+
+Let's look at the structure of the data :
+```{r}
+str(ToothGrowth)
+```
+
+```{r}
+ToothGrowth$dose = as.factor(ToothGrowth$dose)
+```
+
+```{r}
+str(ToothGrowth) 
+```
+
+Let's graph: 
+```{r}
+ggplot(ToothGrowth, aes(x = dose, y = len, fill = supp)) + 
+        geom_boxplot() +
+        ylab("Tooth Length") +
+        xlab("Dose") + 
+        scale_fill_discrete(name="Supplement")
+        
+```
+
+```{r}
+model = aov(len ~ dose + supp + dose:supp,
+           data = ToothGrowth)
+summary(model)
+
+```
+
+Post-hoc testing
+
+```{r}
+TukeyHSD(model, ordered = TRUE)
+```
+
+
+
+## Repeated Measures ANOVA
+
+Example taken from : http://rcompanion.org/handbook/I_09.html
+
+The data below comes from a study in which students documented their daily caloric intake once a month over six months. They were divided into three group, each receiving a separate nutrition educational curriculum. This data can be analyzed via repeated measures, treating the `Students` variable as a random variable.
+
+```{r}
+Input = ("
+Instruction        Student  Month   Calories.per.day
+'Curriculum A'     a        1       2000
+'Curriculum A'     a        2       1978
+'Curriculum A'     a        3       1962
+'Curriculum A'     a        4       1873
+'Curriculum A'     a        5       1782
+'Curriculum A'     a        6       1737
+'Curriculum A'     b        1       1900
+'Curriculum A'     b        2       1826
+'Curriculum A'     b        3       1782
+'Curriculum A'     b        4       1718
+'Curriculum A'     b        5       1639
+'Curriculum A'     b        6       1644
+'Curriculum A'     c        1       2100
+'Curriculum A'     c        2       2067
+'Curriculum A'     c        3       2065
+'Curriculum A'     c        4       2015
+'Curriculum A'     c        5       1994
+'Curriculum A'     c        6       1919
+'Curriculum A'     d        1       2000
+'Curriculum A'     d        2       1981
+'Curriculum A'     d        3       1987
+'Curriculum A'     d        4       2016
+'Curriculum A'     d        5       2010
+'Curriculum A'     d        6       1946
+'Curriculum B'     e        1       2100
+'Curriculum B'     e        2       2004
+'Curriculum B'     e        3       2027
+'Curriculum B'     e        4       2109
+'Curriculum B'     e        5       2197
+'Curriculum B'     e        6       2294
+'Curriculum B'     f        1       2000
+'Curriculum B'     f        2       2011
+'Curriculum B'     f        3       2089
+'Curriculum B'     f        4       2124
+'Curriculum B'     f        5       2199
+'Curriculum B'     f        6       2234
+'Curriculum B'     g        1       2000
+'Curriculum B'     g        2       2074
+'Curriculum B'     g        3       2141
+'Curriculum B'     g        4       2199
+'Curriculum B'     g        5       2265
+'Curriculum B'     g        6       2254
+'Curriculum B'     h        1       2000
+'Curriculum B'     h        2       1970
+'Curriculum B'     h        3       1951
+'Curriculum B'     h        4       1981
+'Curriculum B'     h        5       1987
+'Curriculum B'     h        6       1969
+'Curriculum C'     i        1       1950
+'Curriculum C'     i        2       2007
+'Curriculum C'     i        3       1978
+'Curriculum C'     i        4       1965
+'Curriculum C'     i        5       1984
+'Curriculum C'     i        6       2020
+'Curriculum C'     j        1       2000
+'Curriculum C'     j        2       2029
+'Curriculum C'     j        3       2033
+'Curriculum C'     j        4       2050
+'Curriculum C'     j        5       2001
+'Curriculum C'     j        6       1988
+'Curriculum C'     k        1       2000
+'Curriculum C'     k        2       1976
+'Curriculum C'     k        3       2025
+'Curriculum C'     k        4       2047
+'Curriculum C'     k        5       2033
+'Curriculum C'     k        6       1984
+'Curriculum C'     l        1       2000
+'Curriculum C'     l        2       2020
+'Curriculum C'     l        3       2009
+'Curriculum C'     l        4       2017
+'Curriculum C'     l        5       1989
+'Curriculum C'     l        6       2020
+")
+
+Data = read.table(textConnection(Input),header=TRUE)
+```
+
+Let's visualize the data :
+```{r}
+Data_summary = Data %>% 
+                group_by(Instruction, Month) %>% 
+                summarize(mean_cal= mean(Calories.per.day), 
+                          n = length(Calories.per.day),
+                          se_cal = sd(Calories.per.day) / sqrt(n),
+                          lower.ci = mean_cal - qt(1 - (0.05 / 2), n - 1) * se_cal,
+                          upper.ci = mean_cal + qt(1 - (0.05 / 2), n - 1) * se_cal)
+
+head(Data_summary)
+```
+
+
+```{r, fig.height = 4}
+library(ggplot2)
+
+pd = position_dodge(.2) #jostles the position of points, so they are not on top of each other
+
+ggplot(Data_summary, aes(x = Month,
+                         y = mean_cal,
+                         color = Instruction)) +
+  geom_errorbar(aes(ymin=lower.ci,
+                    ymax=upper.ci),
+                width=.2, size=0.7, position=pd) +
+  geom_point(shape=15, size=4, position=pd) +
+  theme_bw() +
+  theme(axis.title = element_text(face = "bold")) +
+  ylab("Mean calories per day")
+```
+
+
+We'll use the lme (linear mixed-effect models) function in the nlme library, 
+```{r}
+library(nlme)
+model = lme(Calories.per.day ~ Instruction + Month + Instruction*Month, 
+            random = ~1|Student, correlation = corAR1(form = ~Month | Student,
+                                                      value = 0.4287),
+                                                      data = Data,
+                                                      method = "REML")
+Anova(model)
+```
+The correlation component of the function describes autocorrelation structure. CorAR1 is used to indicate a temporal autocorrelation structure of order one, often abbreviated as AR(1), with form correlation = Structure(form = ~time | variable for experimental units). The value for the first order correlation can be specified : the 0.429 value was determined using the ACF function when determining autocorrelation of the residuals (will be shown below).
+
+To test random effects in the model, we'll use the `gls` function, with allows fitting of linear models using generalized least squares :
+```{r}
+model.fixed = gls(Calories.per.day ~ Instruction + Month + Instruction*Month,
+                  data=Data,
+                  method="REML")
+
+anova(model,
+      model.fixed)
+```
+
+Let's check assumptions :
+```{r}
+resid = residuals(model)
+
+hist(resid)
+```
+```{r}
+plot(fitted(model), 
+     residuals(model))
+```
+
+Looking at autocorrelation, with ACF function:
+```{r}
+library(nlme)
+
+model.a = gls(Calories.per.day ~ Instruction + Month + Instruction*Month,
+             data=Data)
+
+ACF(model.a,
+    form = ~ Month | Student)
+```
+
+```{r}
+model.b = lme(Calories.per.day ~ Instruction + Month + Instruction*Month, 
+            random = ~1|Student,
+            data=Data)
+
+ACF(model.b)
+```
+
+## Effect Sizes
+
+* https://cran.r-project.org/web/packages/sjstats/vignettes/anova-statistics.html
+
+* https://cran.r-project.org/web/packages/ARTool/vignettes/art-effect-size.html
+
+* https://cran.r-project.org/web/packages/effsize/index.html
+
+## Mann Whitney
+
+```{r, eval = FALSE}
+# independent 2-group Mann-Whitney U Test 
+wilcox.test(y~A) 
+# where y is numeric and A is A binary factor
+```
+
+## Power Analyses 
+Resources :   
+* https://www.statmethods.net/stats/power.html  
+* https://rcompanion.org/rcompanion/b_02.html
+
+R package `pwr`
+
+## Additional Resources
+
+* An R Companion for the Handbook of Biological Statistics: https://rcompanion.org/rcompanion/a_02.html
+
+* ANOVA Cookbook for R : http://www.cookbook-r.com/Statistical_analysis/ANOVA/#mixed-design-anova
