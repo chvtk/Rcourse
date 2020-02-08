@@ -1,4 +1,4 @@
-# Rcourse_revised
+# Rcourse
 Course to facilitate adoption of R across college-level statistical methods courses (including math, biology, economics, psychology, etc.). This course was presented to faculty teaching statistical methods at Beloit college during the Spring 2019 semester.
  
 The course is split into 3 sessions :
